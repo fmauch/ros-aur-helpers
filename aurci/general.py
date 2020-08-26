@@ -18,6 +18,8 @@ class Routines:
         self.gh = Github(config['CI']['GH_OAUTH_TOKEN'])
         self.gh_organization_name = config['CI']['GH_ORGANIZATION']
         self.gh_organization = self.gh.get_organization(self.gh_organization_name)
+        self.chroot_path = config['CI']['CHROOT_PATH']
+        self.local_repo_path = config['CI']['LOCAL_REPO_PATH']
 
     @staticmethod
     def get_config():

@@ -13,13 +13,23 @@ class Packages(Routines):
     def dmakepkg(self):
         if os.path.isfile(os.path.join(self.path, "PKGBUILD")):
             try:
-                subprocess.run(["dmakepkg", "-xy"], stdout=( None if self.verbosity else subprocess.DEVNULL), \
+                subprocess.run(["arch-nspawn", self.chroot_path+"/root", "pacman", "-Syu"], stdout=( None if self.verbosity else subprocess.DEVNULL), \
+                     stderr=subprocess.STDOUT, cwd=self.path, check=True)
+                subprocess.run(["makechrootpkg", "-c", "-r", self.chroot_path], stdout=( None if self.verbosity else subprocess.DEVNULL), \
                      stderr=subprocess.STDOUT, cwd=self.path, check=True)
                 with open("success.txt", "a") as fobj:
                     fobj.write(self.package + "\n")
                 if self.output:
                     print("Building of {0} finished".format(self.package))
                 self.delete_package_line(self.FAILED_FILE)
+                self.del_old_pkg()
+                self.cppkg()
+                for pkg_path in glob.iglob(self.path + "/*pkg.tar*"):
+                    subprocess.run(["repo-add",
+                                    self.local_repo_path,
+                                    pkg_path],
+                                   stdout=(None if self.verbosity else subprocess.DEVNULL),
+                                   stderr=subprocess.STDOUT, check=True)
             except subprocess.CalledProcessError:
                 with open("failed.txt", "a") as fobj:
                     fobj.write(self.package + "\n")
@@ -30,7 +40,10 @@ class Packages(Routines):
     def build(self):
         if self.package=="all":
             for folder in os.listdir("./packages"):
-                Packages(folder, self.verbosity, self.output).dmakepkg()
+                try:
+                    Packages(folder, self.verbosity, self.output).dmakepkg()
+                except RuntimeWarning as e:
+                    print(e)
         else:
             self.dmakepkg()
 
@@ -41,6 +54,10 @@ class Packages(Routines):
     def mvpkg(self):
         for pkg_path in glob.iglob(self.path + "/*pkg.tar*"):
             shutil.move(pkg_path, "./repository/")
+
+    def cppkg(self):
+        for pkg_path in glob.iglob(self.path + "/*pkg.tar*"):
+            shutil.copy(pkg_path, "./repository/")
 
     def aur_push(self):
         try:
